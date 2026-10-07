@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import PageShell from '../components/layout/PageShell'
+import ScoreDisplay from '../components/ui/ScoreDisplay'
 import RiskBadge from '../components/ui/RiskBadge'
-import RiskScoreBar from '../components/ui/RiskScoreBar'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import { getConsumers, explainConsumer, getConsumer } from '../services/api'
-import { BrainCircuit, AlertCircle, Sparkles } from 'lucide-react'
+import { MessageSquareText, Sparkles, AlertCircle, ChevronRight } from 'lucide-react'
+
+const SUGGESTED = [
+  'Why was this consumer flagged?',
+  'What changed compared with previous months?',
+  'How does this account compare with peers?',
+  'What should an investigator verify first?',
+  'What evidence contributed most to the risk score?',
+]
 
 export default function AIWorkspace() {
   const [params] = useSearchParams()
@@ -20,7 +28,7 @@ export default function AIWorkspace() {
 
   useEffect(() => {
     getConsumers()
-      .then((list) => setConsumers(list.filter((c) => c.risk_level !== 'Low')))
+      .then(list => setConsumers(list.filter(c => c.risk_level !== 'Low')))
       .catch(() => {})
   }, [])
 
@@ -29,7 +37,7 @@ export default function AIWorkspace() {
     setLoadingAnalysis(true); setAnalysis(null); setSummary(''); setError(null)
     getConsumer(selectedId)
       .then(setAnalysis)
-      .catch((e) => setError(e.message))
+      .catch(e => setError(e.message))
       .finally(() => setLoadingAnalysis(false))
   }, [selectedId])
 
@@ -37,157 +45,148 @@ export default function AIWorkspace() {
     if (!selectedId) return
     setGenerating(true); setSummary(''); setError(null)
     explainConsumer(selectedId)
-      .then((data) => setSummary(data.summary))
-      .catch((e) => setError(e.response?.data?.detail || e.message))
+      .then(data => setSummary(data.summary))
+      .catch(e => setError(e.response?.data?.detail || e.message))
       .finally(() => setGenerating(false))
   }
 
   const c = analysis?.consumer
 
   return (
-    <PageShell title="AI Investigation Workspace" subtitle="IBM Granite-powered natural language investigation summaries">
+    <PageShell title="AI Investigator" subtitle="Evidence-aware investigation summaries powered by IBM Granite">
       <div className="grid grid-cols-3 gap-4">
-        {/* Left panel */}
-        <div className="space-y-4">
-          {/* Selector */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BrainCircuit size={14} className="text-purple-500" />
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Select Flagged Consumer</p>
+        {/* LEFT panel */}
+        <div className="space-y-3">
+          {/* Consumer selector */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageSquareText size={13} className="text-violet-500" />
+              <p className="text-[12px] font-semibold text-gray-700">Select Flagged Consumer</p>
             </div>
-            <select
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className="w-full text-[13px] border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-            >
-              <option value="">— Select consumer —</option>
-              {consumers.map((con) => (
-                <option key={con.consumer_id} value={con.consumer_id}>
-                  [{con.risk_level}] {con.consumer_id} — {con.name}
-                </option>
-              ))}
+            <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+              className="w-full text-[13px] border border-gray-200 rounded px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400">
+              <option value="">— Choose consumer —</option>
+              <optgroup label="Demo Cases">
+                {['RJ10293','RJ10541'].map(id => {
+                  const f = consumers.find(c => c.consumer_id === id)
+                  return f ? <option key={id} value={id}>[{f.risk_level}] {id} — {f.name}</option> : null
+                })}
+              </optgroup>
+              <optgroup label="All Flagged">
+                {consumers.filter(c => !['RJ10293','RJ10541'].includes(c.consumer_id)).map(con => (
+                  <option key={con.consumer_id} value={con.consumer_id}>
+                    [{con.risk_level}] {con.consumer_id} — {con.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
-            <p className="text-[10px] text-slate-400 mt-2">{consumers.length} flagged accounts available</p>
+            <p className="text-[10px] text-gray-400 mt-1.5">{consumers.length} flagged accounts available</p>
           </div>
 
-          {loadingAnalysis && <LoadingSpinner text="Loading consumer data…" />}
+          {loadingAnalysis && <LoadingSpinner text="Loading account data…" />}
 
           {/* Consumer snapshot */}
           {analysis && c && (
-            <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-[13px] font-bold text-slate-800">{c.name}</p>
-                  <p className="font-mono text-[11px] text-blue-600 mt-0.5">{c.consumer_id}</p>
+                  <p className="text-[13px] font-bold text-gray-800">{c.name}</p>
+                  <p className="font-mono text-[11px] text-blue-600">{c.consumer_id}</p>
+                  <p className="text-[11px] text-gray-400">{c.area} · {c.connection_type}</p>
                 </div>
                 <RiskBadge level={analysis.risk_level} />
               </div>
-              <p className="text-[11px] text-slate-400">{c.area} · {c.connection_type}</p>
-              <RiskScoreBar score={analysis.risk_score} level={analysis.risk_level} />
-
-              {/* Key stats */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              <ScoreDisplay score={analysis.risk_score} level={analysis.risk_level} />
+              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
                 {[
-                  { label: 'Baseline', value: `${analysis.baseline_usage?.toFixed(0)} kWh` },
-                  { label: 'Current', value: `${Math.max(c.current_reading - c.previous_reading, 0).toFixed(0)} kWh` },
-                  { label: 'Deviation', value: `${analysis.deviation_from_baseline_pct > 0 ? '+' : ''}${analysis.deviation_from_baseline_pct?.toFixed(1)}%` },
-                  { label: 'Flags', value: `${analysis.anomaly_flags?.length || 0} signals` },
-                ].map((s) => (
-                  <div key={s.label} className="bg-slate-50 rounded px-2 py-1.5">
-                    <div className="text-[10px] text-slate-400">{s.label}</div>
-                    <div className="text-[12px] font-bold text-slate-700">{s.value}</div>
+                  ['Baseline', `${analysis.baseline_usage?.toFixed(0)} kWh`],
+                  ['Current', `${Math.max(c.current_reading-c.previous_reading,0).toFixed(0)} kWh`],
+                  ['Deviation', `${(analysis.deviation_from_baseline_pct>0?'+':'')}${analysis.deviation_from_baseline_pct?.toFixed(1)}%`],
+                  ['Active Flags', `${analysis.anomaly_flags?.length||0}`],
+                ].map(([l, v]) => (
+                  <div key={l} className="bg-gray-50 rounded p-2">
+                    <div className="text-gray-400">{l}</div>
+                    <div className="font-bold text-gray-800">{v}</div>
                   </div>
                 ))}
               </div>
-
-              {/* Flags list */}
-              {analysis.anomaly_flags?.length > 0 && (
-                <div className="pt-2 border-t border-slate-100">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Active Flags</p>
-                  <div className="space-y-1">
-                    {analysis.anomaly_flags.slice(0, 3).map((f, i) => (
-                      <div key={i} className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                        {f.flag_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleGenerate}
-                disabled={generating}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {generating ? (
-                  <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
-                ) : (
-                  <><Sparkles size={13} />Generate AI Summary</>
-                )}
+              <button onClick={handleGenerate} disabled={generating}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-[12px] font-semibold bg-slate-900 text-white rounded hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                {generating
+                  ? <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
+                  : <><Sparkles size={12} />Generate Explanation</>}
               </button>
+            </div>
+          )}
+
+          {/* Suggested questions */}
+          {analysis && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Suggested Questions</p>
+              <div className="space-y-1">
+                {SUGGESTED.map((q, i) => (
+                  <button key={i} onClick={handleGenerate}
+                    className="w-full flex items-center gap-2 text-left px-2.5 py-2 text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded hover:bg-blue-50 hover:border-blue-100 hover:text-blue-700">
+                    <ChevronRight size={10} className="text-gray-400 shrink-0" />
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Right panel — AI output */}
+        {/* RIGHT panel — output */}
         <div className="col-span-2">
-          <div className="bg-white border border-slate-200 rounded-lg h-full min-h-[500px] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
+          <div className="bg-white border border-gray-200 rounded-lg h-full min-h-[560px] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <BrainCircuit size={15} className="text-purple-500" />
-                <p className="text-sm font-semibold text-slate-800">AI-Generated Investigation Summary</p>
+                <MessageSquareText size={14} className="text-violet-500" />
+                <p className="text-[13px] font-semibold text-gray-800">Investigation Summary</p>
               </div>
-              <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full font-semibold">IBM Granite</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-100 px-2 py-0.5 rounded font-semibold">IBM Granite</span>
+                <span className="text-[10px] text-gray-400">Local Fallback if API unavailable</span>
+              </div>
             </div>
 
             <div className="flex-1 p-5 flex flex-col">
               {error && <ErrorBanner message={error} />}
 
               {!summary && !generating && !error && (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-300 gap-4">
-                  <BrainCircuit size={44} strokeWidth={1} />
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-slate-400">No summary generated yet</p>
-                    <p className="text-[12px] text-slate-300 mt-1">Select a flagged consumer and click <strong>Generate AI Summary</strong></p>
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-300 gap-4">
+                  <MessageSquareText size={44} strokeWidth={0.75} />
+                  <div className="text-center max-w-xs">
+                    <p className="text-[13px] font-medium text-gray-400 mb-1">No summary generated</p>
+                    <p className="text-[12px] text-gray-300">Select a flagged consumer and click Generate Explanation, or choose a suggested question.</p>
                   </div>
                 </div>
               )}
 
               {generating && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-400">
-                  <div className="w-8 h-8 border-2 border-slate-200 border-t-purple-500 rounded-full animate-spin" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium">Generating investigation summary…</p>
-                    <p className="text-[12px] text-slate-300 mt-1">IBM Granite is analyzing the fraud evidence</p>
-                  </div>
+                <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                  <div className="w-8 h-8 border-2 border-gray-200 border-t-violet-500 rounded-full animate-spin" />
+                  <p className="text-[13px] font-medium text-gray-500">Generating investigation summary…</p>
+                  <p className="text-[11px] text-gray-400">IBM Granite is analyzing the computed fraud evidence</p>
                 </div>
               )}
 
               {summary && (
                 <div className="flex flex-col gap-4">
-                  {/* Summary box */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 text-[13px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 text-[13px] text-gray-700 leading-relaxed whitespace-pre-wrap">
                     {summary}
                   </div>
-
-                  {/* Disclaimer */}
-                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-lg text-[12px] text-amber-800">
-                    <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-500" />
-                    <div>
-                      <strong className="font-semibold">Responsible AI Disclaimer:</strong> This summary is AI-generated based on computed statistical evidence only.
-                      It does not constitute proof of fraud. Final determination requires human review and physical verification.
-                      This system does not make definitive accusations against any consumer.
-                    </div>
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-lg">
+                    <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-amber-800 leading-relaxed">
+                      <strong>Responsible AI:</strong> This summary is generated from computed statistical evidence only.
+                      It does not constitute proof of fraud. WattWatch AI identifies suspicious anomalies for human review —
+                      it does not determine guilt or confirm electricity theft. All flagged accounts require human investigation before action.
+                    </p>
                   </div>
-
-                  {/* Re-generate */}
-                  <button
-                    onClick={handleGenerate}
-                    className="self-start flex items-center gap-2 px-4 py-2 text-[12px] font-semibold border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
-                  >
-                    <Sparkles size={12} /> Regenerate Summary
+                  <button onClick={handleGenerate}
+                    className="self-start flex items-center gap-2 px-3 py-1.5 text-[12px] font-medium border border-gray-200 text-gray-600 rounded hover:bg-gray-50">
+                    <Sparkles size={11} /> Regenerate
                   </button>
                 </div>
               )}

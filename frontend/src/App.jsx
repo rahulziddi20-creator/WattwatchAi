@@ -6,7 +6,7 @@ import InvestigationQueue from './pages/InvestigationQueue'
 import Analytics from './pages/Analytics'
 import AreaIntelligence from './pages/AreaIntelligence'
 import AIWorkspace from './pages/AIWorkspace'
-import Settings from './pages/Settings'
+import Compliance from './pages/Compliance'
 
 export default function App() {
   return (
@@ -22,7 +22,7 @@ export default function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/areas" element={<AreaIntelligence />} />
             <Route path="/ai-workspace" element={<AIWorkspace />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/compliance" element={<Compliance />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

@@ -1,33 +1,28 @@
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  background-color: #f1f5f9;
-  color: #0f172a;
-  -webkit-font-smoothing: antialiased;
+  background: #f0f2f5;
+  color: #111827;
   font-size: 13px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* Thin scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 
-/* Table row hover */
-.table-row-hover:hover { background-color: #f8fafc !important; }
+/* Table base */
+table { border-collapse: collapse; width: 100%; }
+th { text-align: left; }
 
-/* Recharts tooltip */
-.recharts-tooltip-wrapper .recharts-default-tooltip {
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 6px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
-  font-size: 12px !important;
-}
+/* Utility: row hover */
+.trow:hover { background: #f8fafc; }
+
+/* Remove default select arrow color bleed in Firefox */
+select { color-scheme: light; }

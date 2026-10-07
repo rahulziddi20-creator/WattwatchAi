@@ -1,45 +1,53 @@
-import { Bell, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Search, Clock } from 'lucide-react'
 
-export default function TopBar({ title, subtitle, onRefresh }) {
-  const [refreshing, setRefreshing] = useState(false)
+export default function TopBar({ title, subtitle }) {
+  const navigate = useNavigate()
+  const [q, setQ] = useState('')
+  const [ts, setTs] = useState('')
 
-  const handleRefresh = () => {
-    if (!onRefresh) return
-    setRefreshing(true)
-    setTimeout(() => setRefreshing(false), 1000)
-    onRefresh()
+  useEffect(() => {
+    const now = new Date()
+    setTs(now.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))
+  }, [])
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    const id = q.trim()
+    if (id) { navigate(`/investigation/${id}`); setQ('') }
   }
 
   return (
-    <header className="flex items-center justify-between h-14 px-6 bg-white border-b border-slate-200 shrink-0">
-      <div className="flex flex-col justify-center">
-        <h1 className="text-[15px] font-semibold text-slate-900 leading-tight">{title}</h1>
-        {subtitle && <p className="text-[12px] text-slate-400 leading-tight mt-0.5">{subtitle}</p>}
+    <header className="h-12 bg-white border-b border-gray-200 flex items-center px-5 gap-4 shrink-0">
+      <div className="flex-1 min-w-0">
+        <h1 className="text-[14px] font-semibold text-gray-900 truncate">{title}</h1>
+        {subtitle && <p className="text-[11px] text-gray-400 leading-none truncate">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2">
-        {onRefresh && (
-          <button
-            onClick={handleRefresh}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-md hover:bg-slate-50 transition-colors"
-          >
-            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        )}
-        <button className="relative p-2 rounded-md hover:bg-slate-100 transition-colors">
-          <Bell size={15} className="text-slate-400" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
-        </button>
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-          <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
-            OP
-          </div>
-          <div className="hidden sm:block">
-            <div className="text-xs font-semibold text-slate-700">Operator</div>
-            <div className="text-[10px] text-slate-400">Fraud Investigator</div>
-          </div>
+
+      {/* Search */}
+      <form onSubmit={handleSearch} className="flex items-center gap-1.5">
+        <div className="relative">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Consumer ID or Meter No."
+            className="h-7 pl-7 pr-3 text-[12px] border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-400 focus:bg-white w-52"
+          />
         </div>
+      </form>
+
+      {/* Timestamp */}
+      <div className="flex items-center gap-1.5 text-[11px] text-gray-400 shrink-0">
+        <Clock size={11} />
+        <span>{ts}</span>
+      </div>
+
+      {/* Investigator */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-white text-[11px] font-bold">FI</div>
+        <span className="text-[12px] text-gray-600 font-medium">Investigator</span>
       </div>
     </header>
   )

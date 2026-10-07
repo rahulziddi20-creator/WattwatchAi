@@ -1,164 +1,179 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageShell from '../components/layout/PageShell'
-import RiskBadge from '../components/ui/RiskBadge'
+import ScoreChip from '../components/ui/ScoreChip'
 import StatusBadge from '../components/ui/StatusBadge'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import ErrorBanner from '../components/ui/ErrorBanner'
 import EmptyState from '../components/ui/EmptyState'
 import { getQueue } from '../services/api'
 import { fmt } from '../utils/formatters'
-import { ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 
 const AREAS = ['Rajouri','Udhampur','Reasi','Ramban','Bhaderwah','Doda','Kishtwar','Batote']
 const LEVELS = ['Critical','High','Medium','Low']
-const TYPES = ['Residential','Commercial','Industrial']
+const TYPES  = ['Residential','Commercial','Industrial']
+const STATUSES = ['Open','In Review','Escalated','Monitoring','Closed']
+
+function DeviationCell({ pct }) {
+  const n = pct || 0
+  const color = n < -40 ? '#dc2626' : n < -20 ? '#ea580c' : n > 50 ? '#d97706' : '#6b7280'
+  return <span style={{ color }} className="font-mono tabular-nums">{n > 0 ? '+' : ''}{n.toFixed(1)}%</span>
+}
 
 export default function InvestigationQueue() {
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filterArea, setFilterArea] = useState('')
-  const [filterLevel, setFilterLevel] = useState('')
-  const [filterType, setFilterType] = useState('')
-  const [search, setSearch] = useState('')
+
+  // Filters
+  const [search, setSearch]         = useState('')
+  const [filterLevel, setFilterLevel]   = useState('')
+  const [filterArea, setFilterArea]     = useState('')
+  const [filterType, setFilterType]     = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const [sortKey, setSortKey] = useState('risk_score')
   const [sortDir, setSortDir] = useState('desc')
 
-  const load = () => {
-    setLoading(true)
+  useEffect(() => {
     getQueue()
       .then(setItems)
-      .catch((e) => setError(e.message))
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }
-  useEffect(() => { load() }, [])
+  }, [])
 
-  const handleSort = (key) => {
-    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('desc') }
+  const handleSort = (k) => {
+    if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(k); setSortDir('desc') }
   }
 
   const filtered = useMemo(() => {
-    let data = items
-    if (filterArea) data = data.filter((r) => r.area === filterArea)
-    if (filterLevel) data = data.filter((r) => r.risk_level === filterLevel)
-    if (filterType) data = data.filter((r) => r.connection_type === filterType)
+    let d = items
+    if (filterLevel)  d = d.filter(r => r.risk_level === filterLevel)
+    if (filterArea)   d = d.filter(r => r.area === filterArea)
+    if (filterType)   d = d.filter(r => r.connection_type === filterType)
+    if (filterStatus) d = d.filter(r => r.status === filterStatus)
     if (search) {
       const q = search.toLowerCase()
-      data = data.filter((r) =>
-        r.consumer_id.toLowerCase().includes(q) ||
-        r.name.toLowerCase().includes(q) ||
-        r.area.toLowerCase().includes(q)
-      )
+      d = d.filter(r => r.consumer_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
     }
-    return [...data].sort((a, b) => {
-      const va = a[sortKey]; const vb = b[sortKey]
+    return [...d].sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey]
       const cmp = typeof va === 'string' ? va.localeCompare(vb) : (va - vb)
       return sortDir === 'asc' ? cmp : -cmp
     })
-  }, [items, filterArea, filterLevel, filterType, search, sortKey, sortDir])
+  }, [items, search, filterLevel, filterArea, filterType, filterStatus, sortKey, sortDir])
 
-  const SortIcon = ({ k }) => {
-    if (sortKey !== k) return <span className="text-slate-300 ml-0.5 text-[10px]">↕</span>
-    return sortDir === 'asc'
-      ? <ChevronUp size={11} className="inline text-blue-500 ml-0.5" />
-      : <ChevronDown size={11} className="inline text-blue-500 ml-0.5" />
-  }
+  const SortIcon = ({ k }) => sortKey !== k ? null : (
+    sortDir === 'asc' ? <ChevronUp size={11} className="inline ml-0.5 text-blue-500" />
+                      : <ChevronDown size={11} className="inline ml-0.5 text-blue-500" />
+  )
 
   const TH = ({ label, k }) => (
-    <th
-      onClick={() => k && handleSort(k)}
-      className={`px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap select-none ${k ? 'cursor-pointer hover:text-slate-800' : ''}`}
-    >
-      {label}{k && <SortIcon k={k} />}
+    <th onClick={() => k && handleSort(k)}
+      className={`px-3 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${k ? 'cursor-pointer hover:text-gray-800 select-none' : ''}`}>
+      {label}<SortIcon k={k} />
     </th>
   )
 
-  const hasFilters = filterArea || filterLevel || filterType || search
+  // Tab-level filter counts
+  const levelCounts = useMemo(() => {
+    const m = { All: items.length, Critical: 0, High: 0, Medium: 0, Low: 0 }
+    items.forEach(r => { m[r.risk_level] = (m[r.risk_level] || 0) + 1 })
+    return m
+  }, [items])
 
   return (
-    <PageShell title="Investigation Queue" subtitle="Flagged consumer accounts requiring review" onRefresh={load}>
-      {/* Filters bar */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3 mb-4 flex flex-wrap items-center gap-2">
-        <SlidersHorizontal size={14} className="text-slate-400 shrink-0" />
-        <input
-          value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search ID, name or area…"
-          className="text-[12px] border border-slate-200 rounded-md px-3 py-1.5 w-48 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-        />
-        <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}
-          className="text-[12px] border border-slate-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400">
-          <option value="">All Risk Levels</option>
-          {LEVELS.map((l) => <option key={l}>{l}</option>)}
-        </select>
-        <select value={filterArea} onChange={(e) => setFilterArea(e.target.value)}
-          className="text-[12px] border border-slate-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400">
+    <PageShell title="Investigation Queue" subtitle="Work queue for fraud investigation cases">
+      {/* Level tab filters */}
+      <div className="flex items-center gap-1 mb-3">
+        {['All','Critical','High','Medium','Low'].map(l => {
+          const active = filterLevel === l || (l === 'All' && !filterLevel)
+          const TCOLOR = { Critical: '#dc2626', High: '#ea580c', Medium: '#d97706', Low: '#16a34a', All: '#1d4ed8' }
+          return (
+            <button
+              key={l}
+              onClick={() => setFilterLevel(l === 'All' ? '' : l)}
+              style={active ? { background: '#eff6ff', color: TCOLOR[l], borderColor: '#bfdbfe' } : {}}
+              className={`px-3 py-1.5 text-[12px] font-medium rounded border transition-colors ${active ? 'border' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}
+            >
+              {l} <span className="ml-1 text-[10px] tabular-nums">({levelCounts[l] || 0})</span>
+            </button>
+          )
+        })}
+        <div className="ml-auto text-[11px] text-gray-400">{filtered.length} records</div>
+      </div>
+
+      {/* Additional filters */}
+      <div className="flex flex-wrap gap-2 mb-3 bg-white border border-gray-200 rounded-lg p-3">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Consumer ID or name…"
+          className="h-7 px-3 text-[12px] border border-gray-200 rounded bg-gray-50 focus:outline-none focus:border-blue-400 focus:bg-white w-44" />
+        <select value={filterArea} onChange={e => setFilterArea(e.target.value)}
+          className="h-7 px-2 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-blue-400">
           <option value="">All Areas</option>
-          {AREAS.map((a) => <option key={a}>{a}</option>)}
+          {AREAS.map(a => <option key={a}>{a}</option>)}
         </select>
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
-          className="text-[12px] border border-slate-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400">
+        <select value={filterType} onChange={e => setFilterType(e.target.value)}
+          className="h-7 px-2 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-blue-400">
           <option value="">All Types</option>
-          {TYPES.map((t) => <option key={t}>{t}</option>)}
+          {TYPES.map(t => <option key={t}>{t}</option>)}
         </select>
-        {hasFilters && (
-          <button onClick={() => { setFilterArea(''); setFilterLevel(''); setFilterType(''); setSearch('') }}
-            className="text-[11px] text-red-500 hover:text-red-700 px-2 py-1.5 border border-red-100 bg-red-50 rounded-md font-medium">
-            Clear filters
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="h-7 px-2 text-[12px] border border-gray-200 rounded bg-white focus:outline-none focus:border-blue-400">
+          <option value="">All Statuses</option>
+          {STATUSES.map(s => <option key={s}>{s}</option>)}
+        </select>
+        {(search || filterArea || filterType || filterStatus) && (
+          <button onClick={() => { setSearch(''); setFilterArea(''); setFilterType(''); setFilterStatus('') }}
+            className="h-7 px-2.5 text-[11px] text-red-500 border border-red-200 bg-red-50 rounded hover:bg-red-100">
+            Clear
           </button>
         )}
-        <span className="ml-auto text-[11px] text-slate-400 font-medium">{filtered.length} records</span>
       </div>
 
       {loading && <LoadingSpinner />}
       {error && <ErrorBanner message={error} />}
 
       {!loading && !error && (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table>
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
+                <tr className="border-b border-gray-200 bg-gray-50">
                   <TH label="Consumer ID" k="consumer_id" />
-                  <TH label="Name" k="name" />
                   <TH label="Area" k="area" />
                   <TH label="Type" />
-                  <TH label="Current kWh" k="current_units" />
-                  <TH label="Baseline" k="baseline_units" />
+                  <TH label="Current Usage" k="current_units" />
+                  <TH label="Historical Baseline" k="baseline_units" />
                   <TH label="Deviation" k="deviation_pct" />
-                  <TH label="Score" k="risk_score" />
-                  <TH label="Risk Level" k="risk_level" />
-                  <TH label="Primary Anomaly" />
-                  <TH label="Status" k="status" />
+                  <TH label="Risk Score" k="risk_score" />
+                  <TH label="Primary Signal" />
+                  <TH label="Case Status" k="status" />
                   <TH label="" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-gray-50">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={12}><EmptyState title="No records match the applied filters" /></td></tr>
-                ) : filtered.map((row) => (
-                  <tr key={row.consumer_id} className="table-row-hover">
-                    <td className="px-4 py-3 font-mono text-[12px] font-bold text-blue-600">{row.consumer_id}</td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-800">{row.name}</td>
-                    <td className="px-4 py-3 text-[12px] text-slate-500">{row.area}</td>
-                    <td className="px-4 py-3 text-[12px] text-slate-500">{row.connection_type}</td>
-                    <td className="px-4 py-3 font-mono text-[12px] tabular-nums text-slate-700">{(row.current_units||0).toFixed(0)}</td>
-                    <td className="px-4 py-3 font-mono text-[12px] tabular-nums text-slate-400">{(row.baseline_units||0).toFixed(0)}</td>
-                    <td className={`px-4 py-3 font-mono text-[12px] font-semibold tabular-nums ${row.deviation_pct < -30 ? 'text-red-600' : row.deviation_pct > 50 ? 'text-amber-600' : 'text-slate-500'}`}>
-                      {fmt.pct(row.deviation_pct)}
+                  <tr><td colSpan={10}><EmptyState title="No cases match the current filters" /></td></tr>
+                ) : filtered.map(row => (
+                  <tr key={row.consumer_id} className="trow">
+                    <td className="px-3 py-2.5">
+                      <div className="font-mono text-[12px] font-bold text-blue-600">{row.consumer_id}</div>
+                      <div className="text-[11px] text-gray-400">{row.name}</div>
                     </td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-slate-800 tabular-nums">{(row.risk_score||0).toFixed(1)}</td>
-                    <td className="px-4 py-3"><RiskBadge level={row.risk_level} /></td>
-                    <td className="px-4 py-3 text-[12px] text-slate-500 max-w-[150px] truncate">{row.primary_anomaly}</td>
-                    <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => navigate(`/investigation/${row.consumer_id}`)}
-                        className="px-3 py-1.5 text-[11px] font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                      >
-                        Investigate
+                    <td className="px-3 py-2.5 text-[12px] text-gray-600">{row.area}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-500">{row.connection_type}</td>
+                    <td className="px-3 py-2.5 font-mono text-[12px] tabular-nums text-gray-700">{(row.current_units||0).toFixed(0)} kWh</td>
+                    <td className="px-3 py-2.5 font-mono text-[12px] tabular-nums text-gray-400">{(row.baseline_units||0).toFixed(0)} kWh</td>
+                    <td className="px-3 py-2.5"><DeviationCell pct={row.deviation_pct} /></td>
+                    <td className="px-3 py-2.5"><ScoreChip score={row.risk_score} level={row.risk_level} /></td>
+                    <td className="px-3 py-2.5 text-[12px] text-gray-500 max-w-[140px] truncate">{row.primary_anomaly}</td>
+                    <td className="px-3 py-2.5"><StatusBadge status={row.status} /></td>
+                    <td className="px-3 py-2.5">
+                      <button onClick={() => navigate(`/investigation/${row.consumer_id}`)}
+                        className="px-2.5 py-1 text-[11px] font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap">
+                        Investigate →
                       </button>
                     </td>
                   </tr>
